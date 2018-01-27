@@ -57,6 +57,7 @@ class ReleaseLevelPlugin(override val global: Global) extends Plugin { self =>
               extractReleaseStage(annot).map(arg -> _).toList
             case typed @ Typed(_, tpt) if tpt.tpe != null =>
               tpt.tpe.annotations.flatMap(ai => extractReleaseStage(ai.tree)).map(typed -> _)
+            // TODO: This inspects a lot of trees... can we whittle it down somehow?
             case md if md.symbol != null && !md.isDef =>
               val sym = md.symbol match {
                 case s if s.isAccessor => s.accessedOrSelf
