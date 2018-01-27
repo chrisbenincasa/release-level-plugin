@@ -7,19 +7,22 @@ import scala.tools.nsc.{Global, Phase}
 class ReleaseLevelPlugin(override val global: Global) extends Plugin { self =>
   override val name: String = "test-scalac-compiler-plugin"
   override val description: String = "does a thing"
-  override val components: List[PluginComponent] = List(TestPluginComponent)
+  override val components: List[PluginComponent] = List(ReleaseLevelPluginComponent)
 
   private val validOptions =
-    (for { x <- Set("<", "<=", ">", ">=", "=", "!="); y <- Set("alpha", "beta", "gamma") } yield (x, y)).
-      map { case (x, y) => x + "" + y }
+    for { 
+      bound <- Set("<", "<=", ">", ">=", "=", "!=")
+      stage <- ReleaseStage.values().map(_.toString.toLowerCase())
+    } yield s"$bound$stage"
 
   override def init(options: List[String], error: String => Unit): Boolean = {
-    println(options.mkString(" "))
-    println(options.toSet intersect validOptions)
+    val opts = options.flatMap(_.split(","))
+    println(opts.mkString(" "))
+    println(opts.map(_.toLowerCase()).toSet intersect validOptions)
     true
   }
 
-  private object TestPluginComponent extends PluginComponent {
+  private object ReleaseLevelPluginComponent extends PluginComponent {
     override val global: Global = self.global
 
     import global._
@@ -35,7 +38,7 @@ class ReleaseLevelPlugin(override val global: Global) extends Plugin { self =>
       override def apply(unit: global.CompilationUnit): Unit = {
         reporter.echo(s"passed options = ${options}")
 
-        def releaseLevel(tree: Tree): Option[ReleaseStage] = {
+        def extractReleaseStage(tree: Tree): Option[ReleaseStage] = {
           if (tree.tpe == null) {
             None
           } else {
@@ -47,21 +50,23 @@ class ReleaseLevelPlugin(override val global: Global) extends Plugin { self =>
           }
         }
 
-        def betaTree(tree: Tree) = tree match {
-          case Annotated(annot, arg) =>
-            releaseLevel(annot).map(arg -> _).toList
-          case typed @ Typed(_, tpt) if tpt.tpe != null && tpt.tpe.annotations.exists(ai => releaseLevel(ai.tree).isDefined) =>
-            tpt.tpe.annotations.flatMap(ai => releaseLevel(ai.tree)).map(typed -> _)
-          case md: MemberDef if md.symbol.annotations.exists(ai => releaseLevel(ai.tree).isDefined) =>
-            md.symbol.annotations.flatMap(ai => releaseLevel(ai.tree)).map(md -> _)
-          case _ => Nil
+        def handleTree(tree: Tree) = {
+          tree match {
+            case Annotated(annot, arg) =>
+              extractReleaseStage(annot).map(arg -> _).toList
+            case typed @ Typed(_, tpt) if tpt.tpe != null =>
+              tpt.tpe.annotations.flatMap(ai => extractReleaseStage(ai.tree)).map(typed -> _)
+            case md: MemberDef =>
+              md.symbol.annotations.flatMap(ai => extractReleaseStage(ai.tree)).map(md -> _)
+            case _ => Nil
+          }
         }
 
-        def allTrees(tree: Tree): Iterator[Tree] =
-          Iterator(tree, analyzer.macroExpandee(tree)).filter(_ != EmptyTree).
-            flatMap(t => Iterator(t) ++ t.children.iterator.flatMap(allTrees))
+        def allTrees(tree: Tree): Stream[Tree] =
+          Stream(tree, analyzer.macroExpandee(tree)).filter(_ != EmptyTree).
+            flatMap(t => t #:: t.children.toStream.flatMap(allTrees))
 
-        allTrees(unit.body).flatMap(betaTree).toList.foreach {
+        allTrees(unit.body).flatMap(handleTree).toList.foreach {
           case (tree, stage) =>
             reporter.echo(tree.pos, s"found an annotation for stage ${stage}!")
         }

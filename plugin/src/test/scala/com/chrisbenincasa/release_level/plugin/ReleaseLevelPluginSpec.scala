@@ -6,7 +6,7 @@ import scala.reflect.io.VirtualDirectory
 import scala.tools.nsc.reporters.ConsoleReporter
 import scala.tools.nsc.{Global, Settings}
 
-class TestPluginTest extends FunSuite { suite =>
+class ReleaseLevelPluginSpec extends FunSuite { suite =>
 
   val testdata = "plugin/testfiles/"
   val settings = new Settings
@@ -42,4 +42,17 @@ class TestPluginTest extends FunSuite { suite =>
     testFile("test.scala")
   }
 
+  test("with options") {
+    withPluginOptionsValue("test-scalac-compiler-plugin:>=alpha,<gamma" :: Nil) {
+      testFile("test.scala")
+    }
+  }
+
+
+  private def withPluginOptionsValue(v: List[String])(f: => Unit): Unit = {
+    val prev = settings.pluginOptions.value
+    settings.pluginOptions.value = v
+    f
+    settings.pluginOptions.value = prev
+  }
 }
