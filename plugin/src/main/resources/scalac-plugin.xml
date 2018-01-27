@@ -1,0 +1,4 @@
+<plugin>
+  <name>test-scalac-compiler-plugin</name>
+  <classname>com.curalate.compiler.plugins.release_level.TestPlugin</classname>
+</plugin>
