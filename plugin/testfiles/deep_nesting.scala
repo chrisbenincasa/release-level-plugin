@@ -8,7 +8,7 @@ object deep_nesting {
         @Gamma
         def four: Int = 1
 
-        println(xyz + 1)
+        println(xyz + four)
       }
       three
     }
