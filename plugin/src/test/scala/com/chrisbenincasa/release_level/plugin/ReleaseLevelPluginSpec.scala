@@ -35,17 +35,25 @@ class ReleaseLevelPluginSpec extends FunSuite { suite =>
   }
 
   def testFile(filename: String): Unit = {
-    compile(filename)
+    compile(s"${filename}.scala")
   }
 
   test("unsuppressed") {
-    testFile("test.scala")
+    testFile("test")
   }
 
   test("with options") {
     withPluginOptionsValue("test-scalac-compiler-plugin:>=alpha,<gamma" :: Nil) {
-      testFile("test.scala")
+      testFile("test")
     }
+  }
+
+  test("vals") {
+    testFile("vals")
+  }
+
+  test("deep_nesting") {
+    testFile("deep_nesting")
   }
 
 
